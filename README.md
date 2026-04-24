@@ -9,6 +9,7 @@ Local patch scripts for a customized MarkText build.
 - Shows only Markdown-like files and caps scanning at 3000 files / 12 levels.
 - Keeps each added directory as its own collapsible block with Switch, Refresh, and Remove controls.
 - Removes the old eye-protection control while keeping the current white and warm yellow theme.
+- On macOS, the red window close button hides the editor window instead of quitting or destroying it.
 
 ## Files
 
@@ -16,6 +17,7 @@ Local patch scripts for a customized MarkText build.
 - `append-marktext-main-file-list.js`: patches MarkText main process directory scanning.
 - `patch-marktext-sidebar-files.js`: patches renderer sidebar UI and theme behavior.
 - `patch-marktext-open-order.js`: keeps file opening order stable when MarkText also opens a folder.
+- `patch-marktext-macos-close-behavior.js`: makes macOS red-close hide the editor window and restores it from Dock activation.
 
 ## Apply Manually
 
@@ -32,6 +34,8 @@ node marktext-asar-tool.js extract "$APP_ASAR" dist/electron/main.js "$WORK_DIR/
 node marktext-asar-tool.js extract "$APP_ASAR" dist/electron/renderer.js "$WORK_DIR/renderer.js"
 
 node append-marktext-main-file-list.js "$WORK_DIR/main.js"
+node patch-marktext-open-order.js "$WORK_DIR/main.js"
+node patch-marktext-macos-close-behavior.js "$WORK_DIR/main.js"
 node patch-marktext-sidebar-files.js "$WORK_DIR/renderer.js"
 
 node marktext-asar-tool.js replace "$APP_ASAR" "$WORK_DIR/app.asar" \

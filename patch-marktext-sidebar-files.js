@@ -715,6 +715,24 @@ const obsidianBlock = `
 ;(() => {
   const marker = 'MARKTEXT_OBSIDIAN_WORKSPACE_PATCH_20260424'
   let pendingInit = false
+  let pendingScrollReset = false
+
+  const editorScrollSelectors = [
+    '.editor-middle',
+    '.editor-middle > .editor',
+    '.editor',
+    '.source-code',
+    '.muya',
+    '.muya-container',
+    '#ag-editor-id',
+    '.CodeMirror-scroll'
+  ]
+
+  const tabScrollSelectors = [
+    '.editor-tabs',
+    '.tab-bar',
+    '.tabs-container'
+  ]
 
   function installStyle () {
     if (document.getElementById(marker + '-style')) return
@@ -801,28 +819,93 @@ const obsidianBlock = `
       .editor-middle {
         height: 100% !important;
         min-height: 0 !important;
-        overflow: auto !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
       }
       .editor-middle > .editor,
       .source-code {
         height: 100% !important;
         min-height: 0 !important;
-        overflow: auto !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        max-width: 100% !important;
+      }
+      .editor,
+      .muya,
+      .muya-container,
+      #ag-editor-id,
+      .CodeMirror-scroll {
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+      }
+      .editor-tabs,
+      .tab-bar,
+      .tabs-container {
+        max-width: 100% !important;
+        min-width: 0 !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        overscroll-behavior-x: contain !important;
+      }
+      .editor-tabs::-webkit-scrollbar,
+      .tab-bar::-webkit-scrollbar,
+      .tabs-container::-webkit-scrollbar {
+        height: 0 !important;
       }
     \`
     document.head.appendChild(style)
   }
 
+  function closestMatch (target, selectors) {
+    const el = target && target.closest ? target.closest(selectors.join(',')) : null
+    return el || null
+  }
+
+  function resetEditorHorizontalScroll () {
+    if (pendingScrollReset) return
+    pendingScrollReset = true
+    requestAnimationFrame(() => {
+      pendingScrollReset = false
+      document.querySelectorAll(editorScrollSelectors.join(',')).forEach(el => {
+        if (el.scrollLeft) el.scrollLeft = 0
+      })
+    })
+  }
+
+  function handleWheel (event) {
+    const absX = Math.abs(event.deltaX || 0)
+    const absY = Math.abs(event.deltaY || 0)
+    if (absX <= absY || absX < 1) return
+
+    const tabScroller = closestMatch(event.target, tabScrollSelectors)
+    if (tabScroller) {
+      tabScroller.scrollLeft += event.deltaX
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
+
+    if (closestMatch(event.target, editorScrollSelectors)) {
+      resetEditorHorizontalScroll()
+      event.preventDefault()
+      event.stopPropagation()
+    }
+  }
+
   function relayoutForResize () {
-    document.querySelectorAll('.editor-middle, .editor, .source-code').forEach(el => {
+    document.querySelectorAll(editorScrollSelectors.join(',')).forEach(el => {
       const top = el.scrollTop
       el.style.webkitTransform = 'translateZ(0)'
       el.scrollTop = top
+      if (el.scrollLeft) el.scrollLeft = 0
     })
   }
 
   function init () {
     installStyle()
+    document.removeEventListener('wheel', handleWheel, true)
+    document.addEventListener('wheel', handleWheel, { capture: true, passive: false })
+    resetEditorHorizontalScroll()
   }
 
   function scheduleInit () {
