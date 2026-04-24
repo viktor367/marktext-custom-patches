@@ -1,0 +1,10 @@
+*.asar
+*.zip
+*.dmg
+*.backup*
+*.bak
+.DS_Store
+node_modules/
+/tmp/
+/dist/
+/build/
