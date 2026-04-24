@@ -43,6 +43,18 @@ cp "$WORK_DIR/app.asar" "$APP_ASAR"
 
 Restart MarkText after applying.
 
+## Terminal Install For Friends
+
+Install the official MarkText app first, then run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/viktor367/marktext-custom-patches/main/install-marktext-custom.sh | bash
+```
+
+This downloads the customized `app.asar`, backs up the existing MarkText `app.asar`, and installs the custom sidebar build.
+
+Full app zip is not stored in the repository. GitHub Release upload was unreliable for the 106MB app package, so this repo distributes the smaller 21MB patch payload.
+
 ## Do Not Commit
 
 Do not commit `app.asar`, app backups, or distribution zip files. They are large generated artifacts.
