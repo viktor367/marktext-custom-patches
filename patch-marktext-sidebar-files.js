@@ -927,8 +927,136 @@ const obsidianBlock = `
 })()
 `
 
+const tabDetachBlock = `
+;(() => {
+  const marker = 'MARKTEXT_TAB_DETACH_PATCH_20260425'
+  let dragState = null
+
+  function electron () {
+    try { return require('electron') } catch (e) { return null }
+  }
+
+  function isCloseTarget (target) {
+    return !!(target && target.closest && target.closest('.close-icon'))
+  }
+
+  function tabFromTarget (target) {
+    return target && target.closest ? target.closest('.tabs-container li[data-id]') : null
+  }
+
+  function tabPath (tab) {
+    return tab && (tab.getAttribute('title') || tab.title || '')
+  }
+
+  function isUnsaved (tab) {
+    return !!(tab && tab.classList && tab.classList.contains('unsaved'))
+  }
+
+  function closeOriginalTab (tab) {
+    const close = tab && tab.querySelector ? tab.querySelector('.close-icon') : null
+    if (!close) return
+    close.dispatchEvent(new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      button: 0
+    }))
+  }
+
+  function installStyle () {
+    if (document.getElementById(marker + '-style')) return
+    const style = document.createElement('style')
+    style.id = marker + '-style'
+    style.textContent = \`
+      .tabs-container li.mt-detaching-tab {
+        opacity: .55 !important;
+      }
+    \`
+    document.head.appendChild(style)
+  }
+
+  function detachTab (event) {
+    const state = dragState
+    if (!state || state.detached) return
+    const pathname = tabPath(state.tab)
+    const api = electron()
+    if (!pathname || !api || !api.ipcRenderer) return
+
+    state.detached = true
+    state.tab.classList.add('mt-detaching-tab')
+    event.preventDefault()
+    event.stopPropagation()
+
+    Promise.resolve(api.ipcRenderer.invoke('mt::detach-tab-to-new-window', {
+      pathname,
+      screenX: event.screenX,
+      screenY: event.screenY
+    })).then(ok => {
+      if (ok) setTimeout(() => closeOriginalTab(state.tab), 180)
+    }).finally(() => {
+      setTimeout(() => {
+        state.tab && state.tab.classList && state.tab.classList.remove('mt-detaching-tab')
+      }, 400)
+    })
+  }
+
+  function handleMouseDown (event) {
+    if (event.button !== 0 || isCloseTarget(event.target)) return
+    const tab = tabFromTarget(event.target)
+    if (!tab || !tabPath(tab) || isUnsaved(tab)) return
+    const bar = tab.closest('.editor-tabs') || tab.closest('.scrollable-tabs') || tab.parentElement
+    dragState = {
+      tab,
+      bar,
+      startX: event.clientX,
+      startY: event.clientY,
+      detached: false
+    }
+  }
+
+  function handleMouseMove (event) {
+    const state = dragState
+    if (!state || state.detached) return
+    const dx = Math.abs(event.clientX - state.startX)
+    const dy = Math.abs(event.clientY - state.startY)
+    if (dx < 14 && dy < 14) return
+
+    const rect = state.bar && state.bar.getBoundingClientRect ? state.bar.getBoundingClientRect() : null
+    const outsideTabBand = rect
+      ? event.clientY > rect.bottom + 42 || event.clientY < rect.top - 24
+      : dy > 70
+    if (outsideTabBand && dy > 46) detachTab(event)
+  }
+
+  function resetDragState () {
+    dragState = null
+  }
+
+  function init () {
+    installStyle()
+    document.removeEventListener('mousedown', handleMouseDown, true)
+    document.removeEventListener('mousemove', handleMouseMove, true)
+    document.removeEventListener('mouseup', resetDragState, true)
+    document.addEventListener('mousedown', handleMouseDown, true)
+    document.addEventListener('mousemove', handleMouseMove, true)
+    document.addEventListener('mouseup', resetDragState, true)
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true })
+  } else {
+    init()
+  }
+})()
+`
+
 text = replaceBlock(text, 'MARKTEXT_EYE_THEME_PATCH_20260424', 'MARKTEXT_WORKFLOW_PATCH_20260424', eyeBlock)
 text = replaceBlock(text, 'MARKTEXT_OBSIDIAN_WORKSPACE_PATCH_20260424', 'MARKTEXT_ADD_DIRECTORY_PATCH_20260424', obsidianBlock)
-text = replaceBlock(text, 'MARKTEXT_ADD_DIRECTORY_PATCH_20260424', null, directoryBlock)
+if (text.includes("const marker = 'MARKTEXT_TAB_DETACH_PATCH_20260425'")) {
+  text = replaceBlock(text, 'MARKTEXT_TAB_DETACH_PATCH_20260425', 'MARKTEXT_ADD_DIRECTORY_PATCH_20260424', tabDetachBlock)
+  text = replaceBlock(text, 'MARKTEXT_ADD_DIRECTORY_PATCH_20260424', null, directoryBlock)
+} else {
+  text = replaceBlock(text, 'MARKTEXT_ADD_DIRECTORY_PATCH_20260424', null, tabDetachBlock + '\n\n' + directoryBlock)
+}
 
 fs.writeFileSync(file, text)
